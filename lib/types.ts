@@ -1,15 +1,20 @@
 export interface Expense {
-  id: string
-  description: string
-  amount: number
-  category: string
-  date: Date
-  categoryName?: string
-  categoryColor?: string
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  date: Date;
+  categoryName: string;
+  categoryColor: string;
 }
 
 export interface Category {
-  id: string
-  name: string
-  color: string
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
 }

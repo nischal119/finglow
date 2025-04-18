@@ -1,109 +1,99 @@
-"use client"
+"use client";
 
-import type { Category } from "@/lib/types"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { CalendarIcon, FilterIcon, XIcon } from "lucide-react"
-import { cn, formatDate } from "@/lib/utils"
-import type { DateRange } from "react-day-picker"
-import { motion } from "framer-motion"
+import type { Category } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon, FilterIcon, XIcon } from "lucide-react";
+import { cn, formatDate } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
+import { motion } from "framer-motion";
+import { DateRangePicker } from "@/components/date-range-picker";
 
 interface FilterBarProps {
-  categories: Category[]
-  filterCategory: string | null
-  setFilterCategory: (category: string | null) => void
-  dateRange: DateRange
-  setDateRange: (range: DateRange) => void
+  categories: string[];
+  filterCategory: string;
+  setFilterCategory: (category: string) => void;
+  dateRange: DateRange | undefined;
+  setDateRange: (dateRange: DateRange | undefined) => void;
 }
 
-export function FilterBar({ categories, filterCategory, setFilterCategory, dateRange, setDateRange }: FilterBarProps) {
-  const clearFilters = () => {
-    setFilterCategory(null)
-    setDateRange({ from: null, to: null })
-  }
+export function FilterBar({
+  categories,
+  filterCategory,
+  setFilterCategory,
+  dateRange,
+  setDateRange,
+}: FilterBarProps) {
+  const handleCategoryChange = (value: string) => {
+    setFilterCategory(value === "all" ? "" : value);
+  };
 
-  const hasActiveFilters = filterCategory || dateRange.from || dateRange.to
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+  };
+
+  const handleClearFilters = () => {
+    setFilterCategory("");
+    setDateRange(undefined);
+  };
+
+  const hasActiveFilters =
+    filterCategory || (dateRange && (dateRange.from || dateRange.to));
 
   return (
     <motion.div
-      className="flex flex-wrap gap-3 items-center mb-4"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      className="flex flex-col sm:flex-row gap-4 mb-6 items-start sm:items-center"
     >
-      <div className="flex items-center gap-2">
-        <FilterIcon className="h-4 w-4 text-slate-500" />
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Filters:</span>
+      <div className="w-full sm:w-48">
+        <Select
+          value={filterCategory || "all"}
+          onValueChange={handleCategoryChange}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <Select
-        value={filterCategory || "all"}
-        onValueChange={(value) => setFilterCategory(value === "all" ? null : value)}
-      >
-        <SelectTrigger className="h-9 w-[180px]">
-          <SelectValue placeholder="All Categories" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {categories.map((category) => (
-            <SelectItem key={category.id} value={category.id}>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }} />
-                <span>{category.name}</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "h-9 justify-start text-left font-normal",
-              !dateRange.from && !dateRange.to && "text-muted-foreground",
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {dateRange.from ? (
-              dateRange.to ? (
-                <>
-                  {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
-                </>
-              ) : (
-                formatDate(dateRange.from)
-              )
-            ) : (
-              <span>Date Range</span>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={dateRange.from || new Date()}
-            selected={dateRange}
-            onSelect={setDateRange}
-            numberOfMonths={1}
-          />
-        </PopoverContent>
-      </Popover>
+      <DateRangePicker
+        date={dateRange}
+        setDate={handleDateRangeChange}
+        align="start"
+        className="w-full sm:w-auto"
+      />
 
       {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearFilters}
-          className="h-9 px-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        <motion.button
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          onClick={handleClearFilters}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors ml-auto"
         >
-          <XIcon className="h-4 w-4 mr-1" />
-          Clear Filters
-        </Button>
+          Clear filters
+        </motion.button>
       )}
     </motion.div>
-  )
+  );
 }

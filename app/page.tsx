@@ -1,22 +1,26 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function Home() {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
 
-  if (!session) {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      redirect("/auth/login");
+    }
+
+    redirect("/dashboard");
+  } catch (error) {
+    console.error("Error checking auth state:", error);
     redirect("/auth/login");
   }
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold mb-8">Welcome to Finglow</h1>
-        <p className="text-xl">You are signed in as: {session.user.email}</p>
-      </div>
-    </main>
-  );
 }

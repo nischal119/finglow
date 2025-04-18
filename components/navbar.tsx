@@ -15,6 +15,7 @@ import {
   SettingsIcon,
   TrashIcon,
   CreditCardIcon,
+  UserCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Icons } from "@/components/ui/icons";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -52,6 +54,7 @@ export function Navbar() {
   const pathname = usePathname();
   const supabase = createClient();
   const { toast } = useToast();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -171,13 +174,13 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <div className="mr-4 hidden md:flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
+      <div className="container flex h-14 items-center px-4 md:px-6">
+        <div className="mr-4 flex">
+          <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
             <Icons.logo className="h-6 w-6" />
             <span className="hidden font-bold sm:inline-block">FinGlow</span>
           </Link>
-          <nav className="flex items-center space-x-6 text-sm font-medium">
+          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link
               href="/dashboard"
               className={cn(
@@ -213,16 +216,36 @@ export function Navbar() {
             </Link>
           </nav>
         </div>
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <div className="w-full flex-1 md:w-auto md:flex-none">
-            {/* Add search component here if needed */}
-          </div>
-          <nav className="flex items-center">
-            <Button variant="ghost" size="icon">
-              <Icons.gitHub className="h-5 w-5" />
-              <span className="sr-only">GitHub</span>
-            </Button>
-          </nav>
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="mr-2"
+          >
+            {theme === "dark" ? (
+              <SunIcon className="h-5 w-5" />
+            ) : (
+              <MoonIcon className="h-5 w-5" />
+            )}
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <UserCircle className="h-5 w-5" />
+                <span className="sr-only">Open user menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="font-medium">
+                {user?.email}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => signOut()}>
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
