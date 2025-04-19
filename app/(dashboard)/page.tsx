@@ -182,16 +182,22 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 Expenses
               </h2>
-              <Button
-                onClick={() => {
-                  setEditingExpense(null);
-                  setIsFormOpen(true);
-                }}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-md transition-all duration-300 flex items-center gap-2"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
-                <PlusIcon className="h-4 w-4" />
-                Add Expense
-              </Button>
+                <Button
+                  onClick={() => {
+                    setEditingExpense(null);
+                    setIsFormOpen(true);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center gap-2"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Add Expense
+                </Button>
+              </motion.div>
             </div>
 
             <FilterBar
