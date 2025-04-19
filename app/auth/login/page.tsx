@@ -52,12 +52,37 @@ export default function LoginPage() {
         });
 
       if (signInError) {
-        console.error("Sign in error:", signInError);
+        if (signInError.message.includes("Email not confirmed")) {
+          setError(
+            "Please verify your email before logging in. Check your inbox for the verification link."
+          );
+          toast({
+            title: "Email not verified",
+            description:
+              "Please verify your email before logging in. Check your inbox for the verification link.",
+            variant: "destructive",
+          });
+          return;
+        }
         throw signInError;
       }
 
       if (!data.session) {
         throw new Error("No session returned from authentication");
+      }
+
+      // Check if email is verified
+      if (!data.user?.email_confirmed_at) {
+        setError(
+          "Please verify your email before logging in. Check your inbox for the verification link."
+        );
+        toast({
+          title: "Email not verified",
+          description:
+            "Please verify your email before logging in. Check your inbox for the verification link.",
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({

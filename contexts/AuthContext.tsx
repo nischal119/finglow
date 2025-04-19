@@ -64,10 +64,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      router.replace("/auth/login");
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Clear any local state
+      setUser(null);
+
+      // Use router for navigation
+      router.push("/auth/login");
+      router.refresh();
     } catch (error) {
       console.error("Error signing out:", error);
+      // If there's an error, still try to redirect using router
+      router.push("/auth/login");
+      router.refresh();
     }
   };
 

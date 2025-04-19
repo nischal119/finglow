@@ -93,30 +93,6 @@ export function Navbar() {
     };
   }, [supabase]);
 
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        throw error;
-      }
-
-      router.push("/auth/login");
-      router.refresh();
-      toast({
-        title: "Signed out",
-        description: "You have been successfully signed out",
-      });
-    } catch (error: any) {
-      console.error("Error signing out:", error);
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleDeleteAccount = async () => {
     try {
       // First delete user data
@@ -131,10 +107,7 @@ export function Navbar() {
         await supabase.from("profiles").delete().eq("id", user.id);
 
         // Sign out
-        await supabase.auth.signOut();
-
-        router.push("/auth/login");
-        router.refresh();
+        await signOut();
 
         toast({
           title: "Account deleted",

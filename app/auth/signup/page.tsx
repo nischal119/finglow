@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -33,9 +33,36 @@ export default function SignupPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
+
+  // Email validation regex
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  // Add password validation effect
+  useEffect(() => {
+    if (password && confirmPassword) {
+      setPasswordsMatch(password === confirmPassword);
+    } else {
+      setPasswordsMatch(false);
+    }
+  }, [password, confirmPassword]);
+
+  // Email validation effect
+  useEffect(() => {
+    if (email) {
+      if (!emailRegex.test(email)) {
+        setEmailError("Please enter a valid email address");
+      } else {
+        setEmailError(null);
+      }
+    } else {
+      setEmailError(null);
+    }
+  }, [email]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +76,17 @@ export default function SignupPage() {
         description: "Passwords do not match",
         variant: "destructive",
       });
+      setIsLoading(false);
+      return;
+    }
+
+    if (emailError) {
+      toast({
+        title: "Error",
+        description: emailError,
+        variant: "destructive",
+      });
+      setIsLoading(false);
       return;
     }
 
@@ -75,27 +113,46 @@ export default function SignupPage() {
       });
 
       if (signUpError) {
-        console.error("Sign up error:", signUpError);
+        if (signUpError.message.includes("User already registered")) {
+          setError("This email is already registered. Please login instead.");
+          toast({
+            title: "Email already registered",
+            description:
+              "This email is already registered. Please login instead.",
+            variant: "destructive",
+          });
+          return;
+        }
         throw signUpError;
       }
 
+      if (!data.user) {
+        throw new Error("Failed to create user");
+      }
+
       setSuccessMessage(
-        "Registration successful! Please check your email for verification instructions."
+        "Registration successful! Please check your email for verification instructions. You will need to verify your email before you can log in."
       );
       toast({
         title: "Account created",
         description: "Please check your email for verification instructions",
       });
 
-      // Automatically redirect to login after a short delay
+      // Redirect to login page after a delay
       setTimeout(() => {
         router.push("/auth/login");
-      }, 3000);
+      }, 5000);
     } catch (error: any) {
       console.error("Signup error:", error);
       setError(
         error.message || "An error occurred during signup. Please try again."
       );
+      toast({
+        title: "Error",
+        description:
+          error.message || "An error occurred during signup. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +241,11 @@ export default function SignupPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={isLoading}
+                    className={emailError ? "border-red-500" : ""}
                   />
+                  {emailError && (
+                    <p className="text-sm text-red-500">{emailError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
@@ -197,6 +258,7 @@ export default function SignupPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={isLoading}
+                      minLength={6}
                     />
                     <Button
                       type="button"
@@ -212,6 +274,11 @@ export default function SignupPage() {
                       )}
                     </Button>
                   </div>
+                  {password && password.length < 6 && (
+                    <p className="text-sm text-red-500">
+                      Password must be at least 6 characters long
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -224,6 +291,7 @@ export default function SignupPage() {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       disabled={isLoading}
+                      minLength={6}
                     />
                     <Button
                       type="button"
@@ -241,11 +309,16 @@ export default function SignupPage() {
                       )}
                     </Button>
                   </div>
+                  {confirmPassword && !passwordsMatch && (
+                    <p className="text-sm text-red-500">
+                      Passwords do not match
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="submit"
                   className="w-full bg-emerald-500 hover:bg-emerald-600"
-                  disabled={isLoading}
+                  disabled={isLoading || !passwordsMatch || password.length < 6}
                 >
                   {isLoading ? (
                     <>
