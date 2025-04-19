@@ -6,7 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/loading-screen";
-
+import { Analytics } from "@vercel/analytics/react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -38,6 +38,7 @@ export default function RootLayout({
           inter.className
         )}
       >
+        <Analytics />
         <AuthProvider>
           <ThemeProvider
             attribute="class"
