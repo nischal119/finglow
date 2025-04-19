@@ -1,185 +1,145 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Dashboard } from "@/components/dashboard";
 import { ExpenseForm } from "@/components/expense-form";
 import { ExpenseList } from "@/components/expense-list";
 import { FilterBar } from "@/components/filter-bar";
 import { EmptyExpenses } from "@/components/empty-expenses";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { Expense, Category } from "@/lib/types";
 import type { DateRange } from "react-day-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { createClient } from "@/lib/supabase/client";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
-const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.4,
-      when: "beforeChildren",
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.3 },
-  },
-  exit: {
-    opacity: 0,
-    y: -20,
-    transition: { duration: 0.2 },
-  },
-};
-
-export default function DashboardPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
-  const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const supabase = createClient();
   const { toast } = useToast();
 
+  // Fetch data from Supabase
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login");
-    }
-  }, [user, loading, router]);
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from("categories")
+          .select("*")
+          .order("name");
 
-  const fetchData = async () => {
-    if (!user) return;
+        if (categoriesError) throw categoriesError;
 
-    try {
-      // Fetch categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name");
+        // Fetch expenses
+        const { data: expensesData, error: expensesError } = await supabase
+          .from("expenses")
+          .select("*, categories(*)")
+          .order("date", { ascending: false });
 
-      if (categoriesError) throw categoriesError;
+        if (expensesError) throw expensesError;
 
-      // Fetch expenses with category details
-      const { data: expensesData, error: expensesError } = await supabase
-        .from("expenses")
-        .select("*, categories(*)")
-        .order("date", { ascending: false });
+        // Transform data to match our types
+        const transformedExpenses: Expense[] = expensesData.map(
+          (expense: any) => ({
+            id: expense.id,
+            description: expense.description,
+            amount: Number(expense.amount),
+            category: expense.category_id,
+            date: new Date(expense.date),
+            categoryName: expense.categories?.name || "Unknown",
+            categoryColor: expense.categories?.color || "#94a3b8",
+          })
+        );
 
-      if (expensesError) throw expensesError;
+        const transformedCategories: Category[] = categoriesData.map(
+          (category: any) => ({
+            id: category.id,
+            name: category.name,
+            color: category.color,
+          })
+        );
 
-      // Transform data
-      const transformedExpenses: Expense[] = expensesData.map(
-        (expense: any) => ({
-          id: expense.id,
-          description: expense.description,
-          amount: Number(expense.amount),
-          category: expense.category_id,
-          date: new Date(expense.date),
-          categoryName: expense.categories?.name || "Unknown",
-          categoryColor: expense.categories?.color || "#94a3b8",
-        })
-      );
-
-      const transformedCategories: Category[] = categoriesData.map(
-        (category: any) => ({
-          id: category.id,
-          name: category.name,
-          color: category.color,
-        })
-      );
-
-      setCategories(transformedCategories);
-      setExpenses(transformedExpenses);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load your data. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initial data fetch and real-time subscriptions
-  useEffect(() => {
-    if (!user) return;
+        setCategories(transformedCategories);
+        setExpenses(transformedExpenses);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your data. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchData();
 
-    // Real-time subscription for expenses
-    const expensesChannel = supabase
+    // Subscribe to changes
+    const expensesSubscription = supabase
       .channel("expenses-changes")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "expenses",
-        },
+        { event: "*", schema: "public", table: "expenses" },
         (payload) => {
-          console.log("Expense change received:", payload);
           fetchData();
         }
       )
       .subscribe();
 
-    // Real-time subscription for categories
-    const categoriesChannel = supabase
+    const categoriesSubscription = supabase
       .channel("categories-changes")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "categories",
-        },
+        { event: "*", schema: "public", table: "categories" },
         (payload) => {
-          console.log("Category change received:", payload);
           fetchData();
         }
       )
       .subscribe();
 
     return () => {
-      expensesChannel.unsubscribe();
-      categoriesChannel.unsubscribe();
+      expensesSubscription.unsubscribe();
+      categoriesSubscription.unsubscribe();
     };
-  }, [user]);
+  }, [supabase, toast]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      let matchesCategory = true;
+      let matchesDateRange = true;
+
+      if (filterCategory) {
+        matchesCategory = expense.category === filterCategory;
+      }
+
+      if (dateRange?.from) {
+        matchesDateRange = matchesDateRange && expense.date >= dateRange.from;
+      }
+
+      if (dateRange?.to) {
+        matchesDateRange = matchesDateRange && expense.date <= dateRange.to;
+      }
+
+      return matchesCategory && matchesDateRange;
+    });
+  }, [expenses, filterCategory, dateRange]);
 
   const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     setIsFormOpen(true);
   };
 
-  const handleDeleteExpense = async (expense: Expense) => {
+  const deleteExpense = async (expense: Expense) => {
     try {
       const { error } = await supabase
         .from("expenses")
@@ -187,172 +147,120 @@ export default function DashboardPage() {
         .eq("id", expense.id);
 
       if (error) throw error;
-      await fetchData();
-    } catch (error) {
+
+      toast({
+        title: "Success",
+        description: "Expense deleted successfully",
+      });
+    } catch (error: any) {
       console.error("Error deleting expense:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete expense",
+        variant: "destructive",
+      });
     }
   };
 
-  // Filter expenses based on category and date range
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      const matchesCategory =
-        !filterCategory || expense.category === filterCategory;
-      const matchesDateRange =
-        !dateRange ||
-        (!dateRange.from && !dateRange.to) ||
-        ((!dateRange.from || expense.date >= dateRange.from) &&
-          (!dateRange.to || expense.date <= dateRange.to));
-      return matchesCategory && matchesDateRange;
-    });
-  }, [expenses, filterCategory, dateRange]);
-
-  if (loading || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"
-        ></motion.div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-8 p-4 sm:p-6 md:p-8"
-    >
-      <motion.div variants={itemVariants}>
-        <Dashboard expenses={filteredExpenses} categories={categories} />
-      </motion.div>
+    <div>
+      {isLoading ? (
+        <DashboardSkeleton />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Dashboard expenses={filteredExpenses} categories={categories} />
 
-      <motion.div variants={itemVariants} className="mt-6 sm:mt-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-          <motion.h2
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100"
-          >
-            Expenses
-          </motion.h2>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full sm:w-auto"
-          >
-            <Button
-              onClick={() => {
-                setEditingExpense(null);
-                setIsFormOpen(true);
-              }}
-              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-600 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                <PlusIcon className="h-4 w-4" />
-                Add Expense
-              </span>
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                Expenses
+              </h2>
               <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: "0%" }}
-                transition={{ duration: 0.3 }}
-              />
-            </Button>
-          </motion.div>
-        </div>
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Button
+                  onClick={() => {
+                    setEditingExpense(null);
+                    setIsFormOpen(true);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-600 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center gap-2 relative overflow-hidden group"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <PlusIcon className="h-4 w-4" />
+                    Add Expense
+                  </span>
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "0%" }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </Button>
+              </motion.div>
+            </div>
 
-        <motion.div variants={itemVariants}>
-          <FilterBar
-            categories={categories}
-            setFilterCategory={setFilterCategory}
-            filterCategory={filterCategory}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-          />
-        </motion.div>
+            <FilterBar
+              categories={categories}
+              setFilterCategory={setFilterCategory}
+              filterCategory={filterCategory}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+            />
 
-        <AnimatePresence mode="wait">
-          {filteredExpenses.length > 0 ? (
-            <motion.div
-              key="expense-list"
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
+            {filteredExpenses.length > 0 ? (
               <ExpenseList
                 expenses={filteredExpenses}
                 categories={categories}
                 onEdit={handleEditExpense}
-                onDelete={handleDeleteExpense}
+                onDelete={deleteExpense}
               />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="empty-state"
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
+            ) : (
               <EmptyExpenses />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            )}
+          </div>
 
-      <AnimatePresence>
-        {isFormOpen && (
-          <ExpenseForm
-            categories={categories}
-            editingExpense={editingExpense}
-            onClose={() => {
-              setIsFormOpen(false);
-              setEditingExpense(null);
-            }}
-            onSubmit={async () => {
-              setIsFormOpen(false);
-              setEditingExpense(null);
-              await fetchData(); // Refresh data immediately after submission
-            }}
-          />
-        )}
-      </AnimatePresence>
+          <AnimatePresence>
+            {isFormOpen && (
+              <ExpenseForm
+                categories={categories}
+                editingExpense={editingExpense}
+                onClose={() => {
+                  setIsFormOpen(false);
+                  setEditingExpense(null);
+                }}
+                onSubmit={async () => {
+                  setIsFormOpen(false);
+                  setEditingExpense(null);
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+    </div>
+  );
+}
 
-      <AlertDialog
-        open={!!deleteExpense}
-        onOpenChange={() => setDeleteExpense(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              expense.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setDeleteExpense(null);
-              }}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </motion.div>
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-32 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-[300px] rounded-xl" />
+      <div className="space-y-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-20 rounded-xl" />
+        ))}
+      </div>
+    </div>
   );
 }
