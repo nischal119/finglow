@@ -25,61 +25,61 @@ export default function ExpensesPage() {
   const supabase = createClient();
   const { toast } = useToast();
 
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+
+      if (categoriesError) throw categoriesError;
+
+      // Fetch expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from("expenses")
+        .select("*, categories(*)")
+        .order("date", { ascending: false });
+
+      if (expensesError) throw expensesError;
+
+      // Transform data to match our types
+      const transformedExpenses: Expense[] = expensesData.map(
+        (expense: any) => ({
+          id: expense.id,
+          description: expense.description,
+          amount: Number(expense.amount),
+          category: expense.category_id,
+          date: new Date(expense.date),
+          categoryName: expense.categories?.name || "Unknown",
+          categoryColor: expense.categories?.color || "#94a3b8",
+        })
+      );
+
+      const transformedCategories: Category[] = categoriesData.map(
+        (category: any) => ({
+          id: category.id,
+          name: category.name,
+          color: category.color,
+        })
+      );
+
+      setCategories(transformedCategories);
+      setExpenses(transformedExpenses);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load your data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch categories
-        const { data: categoriesData, error: categoriesError } = await supabase
-          .from("categories")
-          .select("*")
-          .order("name");
-
-        if (categoriesError) throw categoriesError;
-
-        // Fetch expenses
-        const { data: expensesData, error: expensesError } = await supabase
-          .from("expenses")
-          .select("*, categories(*)")
-          .order("date", { ascending: false });
-
-        if (expensesError) throw expensesError;
-
-        // Transform data to match our types
-        const transformedExpenses: Expense[] = expensesData.map(
-          (expense: any) => ({
-            id: expense.id,
-            description: expense.description,
-            amount: Number(expense.amount),
-            category: expense.category_id,
-            date: new Date(expense.date),
-            categoryName: expense.categories?.name || "Unknown",
-            categoryColor: expense.categories?.color || "#94a3b8",
-          })
-        );
-
-        const transformedCategories: Category[] = categoriesData.map(
-          (category: any) => ({
-            id: category.id,
-            name: category.name,
-            color: category.color,
-          })
-        );
-
-        setCategories(transformedCategories);
-        setExpenses(transformedExpenses);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load your data. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
 
     // Subscribe to changes
@@ -111,6 +111,36 @@ export default function ExpensesPage() {
     };
   }, [supabase, toast]);
 
+  const handleExpenseChange = () => {
+    fetchData();
+  };
+
+  const deleteExpense = async (expense: Expense) => {
+    try {
+      const { error } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("id", expense.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Expense deleted successfully",
+      });
+
+      // Refresh the data
+      fetchData();
+    } catch (error: any) {
+      console.error("Error deleting expense:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete expense",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredExpenses = expenses.filter((expense) => {
     let matchesCategory = true;
     let matchesDateRange = true;
@@ -133,29 +163,6 @@ export default function ExpensesPage() {
   const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     setIsFormOpen(true);
-  };
-
-  const deleteExpense = async (expense: Expense) => {
-    try {
-      const { error } = await supabase
-        .from("expenses")
-        .delete()
-        .eq("id", expense.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Expense deleted successfully",
-      });
-    } catch (error: any) {
-      console.error("Error deleting expense:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete expense",
-        variant: "destructive",
-      });
-    }
   };
 
   return (
@@ -239,6 +246,7 @@ export default function ExpensesPage() {
                   setIsFormOpen(false);
                   setEditingExpense(null);
                 }}
+                onExpenseChange={handleExpenseChange}
               />
             )}
           </AnimatePresence>

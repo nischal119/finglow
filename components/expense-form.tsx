@@ -27,6 +27,7 @@ interface ExpenseFormProps {
   editingExpense: Expense | null;
   onClose: () => void;
   onSubmit: () => void;
+  onExpenseChange?: () => void;
 }
 
 export function ExpenseForm({
@@ -34,6 +35,7 @@ export function ExpenseForm({
   editingExpense,
   onClose,
   onSubmit,
+  onExpenseChange,
 }: ExpenseFormProps) {
   const [description, setDescription] = useState(
     editingExpense?.description || ""
@@ -72,6 +74,10 @@ export function ExpenseForm({
           ? "Expense updated successfully"
           : "Expense added successfully",
       });
+
+      if (onExpenseChange) {
+        onExpenseChange();
+      }
 
       onSubmit();
       onClose();
