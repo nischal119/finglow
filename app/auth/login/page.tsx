@@ -65,8 +65,7 @@ export default function LoginPage() {
         description: "You have successfully logged in",
       });
 
-      router.push("/");
-      router.refresh();
+      router.replace("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
       setError(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Expense, Category } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -35,10 +35,26 @@ import { Clock, ChartPie, Wallet } from "lucide-react";
 
 interface DashboardProps {
   expenses: Expense[];
-  categories: string[];
+  categories: Category[];
 }
 
 export function Dashboard({ expenses, categories }: DashboardProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  useEffect(() => {
+    // Set initial loading state
+    setIsLoading(true);
+
+    // Add a small delay to ensure smooth transition
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setShouldAnimate(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [expenses]);
+
   // Calculate total expenses
   const totalExpenses = expenses.reduce(
     (acc, expense) => acc + expense.amount,
@@ -66,24 +82,26 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
   }, [expenses]);
 
   const expensesByCategory = useMemo(() => {
-    const categoryMap = new Map<string, number>();
+    const categoryMap = new Map<
+      string,
+      { value: number; name: string; color: string }
+    >();
 
     expenses.forEach((expense) => {
       if (!expense.category) return; // Skip if no category
-      const currentAmount = categoryMap.get(expense.category) || 0;
-      categoryMap.set(expense.category, currentAmount + expense.amount);
+      const currentData = categoryMap.get(expense.category) || {
+        value: 0,
+        name: expense.categoryName || expense.category,
+        color: expense.categoryColor || "#94a3b8",
+      };
+      categoryMap.set(expense.category, {
+        ...currentData,
+        value: currentData.value + expense.amount,
+      });
     });
 
-    return Array.from(categoryMap.entries()).map(([id, value]) => {
-      const category = categories.find((c) => c === id);
-      return {
-        id,
-        name: category || id,
-        value,
-        color: category ? "#10b981" : "#94a3b8",
-      };
-    });
-  }, [expenses, categories]);
+    return Array.from(categoryMap.values());
+  }, [expenses]);
 
   const expensesByMonth = useMemo(() => {
     const monthMap = new Map<string, number>();
@@ -169,10 +187,18 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
     }),
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -245,7 +271,11 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                 <TabsContent value="pie" className="mt-0">
                   {expensesByCategory.length > 0 ? (
                     <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        key={shouldAnimate ? "animated" : "loading"}
+                      >
                         <PieChart>
                           <Pie
                             data={expensesByCategory}
@@ -258,10 +288,14 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             label={({ name, percent }) =>
                               `${name} ${(percent * 100).toFixed(0)}%`
                             }
+                            isAnimationActive={shouldAnimate}
+                            animationBegin={0}
+                            animationDuration={1200}
+                            animationEasing="ease-out"
                           >
                             {expensesByCategory.map((entry, index) => (
                               <Cell
-                                key={`cell-${index}`}
+                                key={`cell-${index}-${entry.value}`}
                                 fill={
                                   entry.color || COLORS[index % COLORS.length]
                                 }
@@ -272,6 +306,7 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             formatter={(value) =>
                               formatCurrency(value as number)
                             }
+                            animationDuration={200}
                           />
                           <Legend />
                         </PieChart>
@@ -315,7 +350,11 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                 <TabsContent value="bar" className="mt-0">
                   {expensesByCategory.length > 0 ? (
                     <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        key={shouldAnimate ? "animated" : "loading"}
+                      >
                         <BarChart data={expensesByCategory}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis dataKey="name" />
@@ -324,11 +363,19 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             formatter={(value) =>
                               formatCurrency(value as number)
                             }
+                            animationDuration={200}
                           />
-                          <Bar dataKey="value" name="Amount">
+                          <Bar
+                            dataKey="value"
+                            name="Amount"
+                            isAnimationActive={shouldAnimate}
+                            animationBegin={0}
+                            animationDuration={1200}
+                            animationEasing="ease-out"
+                          >
                             {expensesByCategory.map((entry, index) => (
                               <Cell
-                                key={`cell-${index}`}
+                                key={`cell-${index}-${entry.value}`}
                                 fill={
                                   entry.color || COLORS[index % COLORS.length]
                                 }
@@ -376,7 +423,11 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                 <TabsContent value="trend" className="mt-0">
                   {expensesByMonth.some((month) => month.amount > 0) ? (
                     <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        key={shouldAnimate ? "animated" : "loading"}
+                      >
                         <AreaChart data={expensesByMonth}>
                           <defs>
                             <linearGradient
@@ -405,6 +456,7 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             formatter={(value) =>
                               formatCurrency(value as number)
                             }
+                            animationDuration={200}
                           />
                           <Area
                             type="monotone"
@@ -413,6 +465,10 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             fillOpacity={1}
                             fill="url(#colorAmount)"
                             name="Monthly Expenses"
+                            isAnimationActive={shouldAnimate}
+                            animationBegin={0}
+                            animationDuration={1200}
+                            animationEasing="ease-out"
                           />
                         </AreaChart>
                       </ResponsiveContainer>

@@ -1,26 +1,32 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+"use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-export default async function Home() {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+export default function Home() {
+  const router = useRouter();
+  const supabase = createClient();
 
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/auth/login");
+      } else {
+        router.replace("/dashboard");
+      }
+    };
 
-    if (!session) {
-      redirect("/auth/login");
-    }
+    checkAuth();
+  }, [router]);
 
-    redirect("/dashboard");
-  } catch (error) {
-    console.error("Error checking auth state:", error);
-    redirect("/auth/login");
-  }
+  // Return a loading state while checking auth
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+    </div>
+  );
 }

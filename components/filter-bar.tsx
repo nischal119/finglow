@@ -22,9 +22,9 @@ import { motion } from "framer-motion";
 import { DateRangePicker } from "@/components/date-range-picker";
 
 interface FilterBarProps {
-  categories: string[];
-  filterCategory: string;
-  setFilterCategory: (category: string) => void;
+  categories: Category[];
+  filterCategory: string | null;
+  setFilterCategory: (category: string | null) => void;
   dateRange: DateRange | undefined;
   setDateRange: (dateRange: DateRange | undefined) => void;
 }
@@ -37,7 +37,7 @@ export function FilterBar({
   setDateRange,
 }: FilterBarProps) {
   const handleCategoryChange = (value: string) => {
-    setFilterCategory(value === "all" ? "" : value);
+    setFilterCategory(value === "all" ? null : value);
   };
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
@@ -45,7 +45,7 @@ export function FilterBar({
   };
 
   const handleClearFilters = () => {
-    setFilterCategory("");
+    setFilterCategory(null);
     setDateRange(undefined);
   };
 
@@ -69,8 +69,8 @@ export function FilterBar({
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
               </SelectItem>
             ))}
           </SelectContent>

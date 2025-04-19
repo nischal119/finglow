@@ -1,229 +1,204 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { ExpenseForm } from "@/components/expense-form"
-import { ExpenseList } from "@/components/expense-list"
-import { FilterBar } from "@/components/filter-bar"
-import { EmptyExpenses } from "@/components/empty-expenses"
-import { AnimatePresence, motion } from "framer-motion"
-import type { Expense, Category } from "@/lib/types"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
-import { PlusIcon } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { ExpenseForm } from "@/components/expense-form";
+import { ExpenseList } from "@/components/expense-list";
+import { FilterBar } from "@/components/filter-bar";
+import { EmptyExpenses } from "@/components/empty-expenses";
+import { AnimatePresence, motion } from "framer-motion";
+import type { Expense, Category } from "@/lib/types";
+import type { DateRange } from "react-day-picker";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { PlusIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-  const [filterCategory, setFilterCategory] = useState<string | null>(null)
-  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
-    from: null,
-    to: null,
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
-  const { toast } = useToast()
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
+  const { toast } = useToast();
 
-  // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from("categories")
           .select("*")
-          .order("name")
+          .order("name");
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) throw categoriesError;
 
         // Fetch expenses
         const { data: expensesData, error: expensesError } = await supabase
           .from("expenses")
           .select("*, categories(*)")
-          .order("date", { ascending: false })
+          .order("date", { ascending: false });
 
-        if (expensesError) throw expensesError
+        if (expensesError) throw expensesError;
 
         // Transform data to match our types
-        const transformedExpenses: Expense[] = expensesData.map((expense: any) => ({
-          id: expense.id,
-          description: expense.description,
-          amount: Number(expense.amount),
-          category: expense.category_id,
-          date: new Date(expense.date),
-          categoryName: expense.categories?.name || "Unknown",
-          categoryColor: expense.categories?.color || "#94a3b8",
-        }))
+        const transformedExpenses: Expense[] = expensesData.map(
+          (expense: any) => ({
+            id: expense.id,
+            description: expense.description,
+            amount: Number(expense.amount),
+            category: expense.category_id,
+            date: new Date(expense.date),
+            categoryName: expense.categories?.name || "Unknown",
+            categoryColor: expense.categories?.color || "#94a3b8",
+          })
+        );
 
-        const transformedCategories: Category[] = categoriesData.map((category: any) => ({
-          id: category.id,
-          name: category.name,
-          color: category.color,
-        }))
+        const transformedCategories: Category[] = categoriesData.map(
+          (category: any) => ({
+            id: category.id,
+            name: category.name,
+            color: category.color,
+          })
+        );
 
-        setCategories(transformedCategories)
-        setExpenses(transformedExpenses)
+        setCategories(transformedCategories);
+        setExpenses(transformedExpenses);
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Error fetching data:", error);
         toast({
           title: "Error",
           description: "Failed to load your data. Please try again.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchData()
+    fetchData();
 
     // Subscribe to changes
     const expensesSubscription = supabase
       .channel("expenses-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, (payload) => {
-        fetchData()
-      })
-      .subscribe()
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expenses" },
+        (payload) => {
+          fetchData();
+        }
+      )
+      .subscribe();
 
     const categoriesSubscription = supabase
       .channel("categories-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, (payload) => {
-        fetchData()
-      })
-      .subscribe()
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        (payload) => {
+          fetchData();
+        }
+      )
+      .subscribe();
 
     return () => {
-      expensesSubscription.unsubscribe()
-      categoriesSubscription.unsubscribe()
+      expensesSubscription.unsubscribe();
+      categoriesSubscription.unsubscribe();
+    };
+  }, [supabase, toast]);
+
+  const filteredExpenses = expenses.filter((expense) => {
+    let matchesCategory = true;
+    let matchesDateRange = true;
+
+    if (filterCategory) {
+      matchesCategory = expense.category === filterCategory;
     }
-  }, [supabase, toast])
 
-  const addExpense = async (expense: Omit<Expense, "id">) => {
-    try {
-      const { data, error } = await supabase
-        .from("expenses")
-        .insert({
-          description: expense.description,
-          amount: expense.amount,
-          category_id: expense.category,
-          date: expense.date.toISOString().split("T")[0],
-        })
-        .select()
-
-      if (error) throw error
-
-      toast({
-        title: "Success",
-        description: "Expense added successfully",
-      })
-
-      setIsFormOpen(false)
-    } catch (error: any) {
-      console.error("Error adding expense:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add expense",
-        variant: "destructive",
-      })
+    if (dateRange?.from) {
+      matchesDateRange = matchesDateRange && expense.date >= dateRange.from;
     }
-  }
 
-  const updateExpense = async (updatedExpense: Expense) => {
+    if (dateRange?.to) {
+      matchesDateRange = matchesDateRange && expense.date <= dateRange.to;
+    }
+
+    return matchesCategory && matchesDateRange;
+  });
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setIsFormOpen(true);
+  };
+
+  const deleteExpense = async (expense: Expense) => {
     try {
       const { error } = await supabase
         .from("expenses")
-        .update({
-          description: updatedExpense.description,
-          amount: updatedExpense.amount,
-          category_id: updatedExpense.category,
-          date: updatedExpense.date.toISOString().split("T")[0],
-        })
-        .eq("id", updatedExpense.id)
+        .delete()
+        .eq("id", expense.id);
 
-      if (error) throw error
-
-      toast({
-        title: "Success",
-        description: "Expense updated successfully",
-      })
-
-      setEditingExpense(null)
-      setIsFormOpen(false)
-    } catch (error: any) {
-      console.error("Error updating expense:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update expense",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const deleteExpense = async (id: string) => {
-    try {
-      const { error } = await supabase.from("expenses").delete().eq("id", id)
-
-      if (error) throw error
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Expense deleted successfully",
-      })
+      });
     } catch (error: any) {
-      console.error("Error deleting expense:", error)
+      console.error("Error deleting expense:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete expense",
         variant: "destructive",
-      })
+      });
     }
-  }
-
-  const handleEditExpense = (expense: Expense) => {
-    setEditingExpense(expense)
-    setIsFormOpen(true)
-  }
-
-  const filteredExpenses = expenses.filter((expense) => {
-    let matchesCategory = true
-    let matchesDateRange = true
-
-    if (filterCategory) {
-      matchesCategory = expense.category === filterCategory
-    }
-
-    if (dateRange.from) {
-      matchesDateRange = matchesDateRange && expense.date >= dateRange.from
-    }
-
-    if (dateRange.to) {
-      matchesDateRange = matchesDateRange && expense.date <= dateRange.to
-    }
-
-    return matchesCategory && matchesDateRange
-  })
+  };
 
   return (
     <div>
       {isLoading ? (
-        <ExpensesPageSkeleton />
+        <div className="space-y-8">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-4 w-full max-w-md" />
+          </div>
+
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-10 w-[180px]" />
+          </div>
+
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-xl" />
+            ))}
+          </div>
+        </div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Expenses</h1>
-            <p className="text-slate-600 dark:text-slate-400">Manage and track all your expenses in one place</p>
+            <p className="text-slate-600 dark:text-slate-400">
+              Track and manage all your expenses in one place
+            </p>
           </div>
 
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-medium text-slate-800 dark:text-slate-100">All Expenses</h2>
+            <h2 className="text-xl font-medium text-slate-800 dark:text-slate-100">
+              All Expenses
+            </h2>
             <Button
               onClick={() => {
-                setEditingExpense(null)
-                setIsFormOpen(true)
+                setEditingExpense(null);
+                setIsFormOpen(true);
               }}
               className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-md transition-all duration-300 flex items-center gap-2"
             >
@@ -248,70 +223,27 @@ export default function ExpensesPage() {
               onDelete={deleteExpense}
             />
           ) : (
-            <EmptyExpenses
-              onAddExpense={() => {
-                setEditingExpense(null)
-                setIsFormOpen(true)
-              }}
-            />
+            <EmptyExpenses />
           )}
 
           <AnimatePresence>
             {isFormOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-                onClick={() => setIsFormOpen(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.9, y: 20 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.9, y: 20 }}
-                  className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ExpenseForm
-                    categories={categories}
-                    onSubmit={editingExpense ? updateExpense : addExpense}
-                    onCancel={() => setIsFormOpen(false)}
-                    initialData={editingExpense}
-                  />
-                </motion.div>
-              </motion.div>
+              <ExpenseForm
+                categories={categories}
+                editingExpense={editingExpense}
+                onClose={() => {
+                  setIsFormOpen(false);
+                  setEditingExpense(null);
+                }}
+                onSubmit={async () => {
+                  setIsFormOpen(false);
+                  setEditingExpense(null);
+                }}
+              />
             )}
           </AnimatePresence>
         </motion.div>
       )}
     </div>
-  )
-}
-
-function ExpensesPageSkeleton() {
-  return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-4 w-full max-w-md" />
-      </div>
-
-      <div className="flex justify-between items-center">
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-10 w-32" />
-      </div>
-
-      <div className="flex flex-wrap gap-3 items-center">
-        <Skeleton className="h-4 w-16" />
-        <Skeleton className="h-9 w-[180px]" />
-        <Skeleton className="h-9 w-[180px]" />
-      </div>
-
-      <div className="space-y-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-20 rounded-xl" />
-        ))}
-      </div>
-    </div>
-  )
+  );
 }

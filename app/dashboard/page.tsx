@@ -9,7 +9,8 @@ import { ExpenseList } from "@/components/expense-list";
 import { FilterBar } from "@/components/filter-bar";
 import { EmptyExpenses } from "@/components/empty-expenses";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Expense, Category, DateRange } from "@/lib/types";
+import type { Expense, Category } from "@/lib/types";
+import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -56,11 +57,11 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>("");
-  const [dateRange, setDateRange] = useState<DateRange>();
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [deleteExpense, setDeleteExpense] = useState<Expense | null>(null);
   const supabase = createClient();
@@ -105,8 +106,12 @@ export default function DashboardPage() {
         })
       );
 
-      const transformedCategories: string[] = categoriesData.map(
-        (category: any) => category.name
+      const transformedCategories: Category[] = categoriesData.map(
+        (category: any) => ({
+          id: category.id,
+          name: category.name,
+          color: category.color,
+        })
       );
 
       setCategories(transformedCategories);
@@ -174,9 +179,12 @@ export default function DashboardPage() {
     // which will show the edit dialog
   };
 
-  const handleDeleteExpense = async (id: string) => {
+  const handleDeleteExpense = async (expense: Expense) => {
     try {
-      const { error } = await supabase.from("expenses").delete().eq("id", id);
+      const { error } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("id", expense.id);
 
       if (error) throw error;
       await fetchData();
@@ -192,8 +200,9 @@ export default function DashboardPage() {
         !filterCategory || expense.category === filterCategory;
       const matchesDateRange =
         !dateRange ||
-        (expense.date >= dateRange.from.toISOString() &&
-          expense.date <= dateRange.to.toISOString());
+        (!dateRange.from && !dateRange.to) ||
+        ((!dateRange.from || expense.date >= dateRange.from) &&
+          (!dateRange.to || expense.date <= dateRange.to));
       return matchesCategory && matchesDateRange;
     });
   }, [expenses, filterCategory, dateRange]);
@@ -322,7 +331,9 @@ export default function DashboardPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteExpense}
+              onClick={() => {
+                setDeleteExpense(null);
+              }}
               className="bg-red-500 hover:bg-red-600"
             >
               Delete

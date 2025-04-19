@@ -1,15 +1,27 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useMemo } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/hooks/use-toast"
-import { motion } from "framer-motion"
-import { formatCurrency } from "@/lib/utils"
+import { useEffect, useState, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
+import { formatCurrency } from "@/lib/utils";
 import {
   PieChart,
   Pie,
@@ -26,165 +38,209 @@ import {
   Line,
   AreaChart,
   Area,
-} from "recharts"
-import { PieChartIcon, BarChart3Icon, LineChartIcon, TrendingUpIcon } from "lucide-react"
-import type { Expense, Category } from "@/lib/types"
+} from "recharts";
+import {
+  PieChartIcon,
+  BarChart3Icon,
+  LineChartIcon,
+  TrendingUpIcon,
+} from "lucide-react";
+import type { Expense, Category } from "@/lib/types";
 
 export default function AnalyticsPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [timeRange, setTimeRange] = useState("all")
-  const supabase = createClient()
-  const { toast } = useToast()
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState("all");
+  const supabase = createClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from("categories")
           .select("*")
-          .order("name")
+          .order("name");
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) throw categoriesError;
 
-        // Fetch expenses
+        // Fetch expenses with category details
         const { data: expensesData, error: expensesError } = await supabase
           .from("expenses")
-          .select("*, categories(*)")
-          .order("date", { ascending: false })
+          .select(
+            `
+            *,
+            categories (
+              id,
+              name,
+              color
+            )
+          `
+          )
+          .order("date", { ascending: false });
 
-        if (expensesError) throw expensesError
+        if (expensesError) throw expensesError;
 
         // Transform data to match our types
-        const transformedExpenses: Expense[] = expensesData.map((expense: any) => ({
-          id: expense.id,
-          description: expense.description,
-          amount: Number(expense.amount),
-          category: expense.category_id,
-          date: new Date(expense.date),
-          categoryName: expense.categories?.name || "Unknown",
-          categoryColor: expense.categories?.color || "#94a3b8",
-        }))
+        const transformedExpenses: Expense[] = expensesData.map(
+          (expense: any) => ({
+            id: expense.id,
+            description: expense.description,
+            amount: Number(expense.amount),
+            category: expense.category_id,
+            date: new Date(expense.date),
+            categoryName: expense.categories?.name || "Unknown",
+            categoryColor: expense.categories?.color || "#94a3b8",
+          })
+        );
 
-        const transformedCategories: Category[] = categoriesData.map((category: any) => ({
-          id: category.id,
-          name: category.name,
-          color: category.color,
-        }))
+        const transformedCategories: Category[] = categoriesData.map(
+          (category: any) => ({
+            id: category.id,
+            name: category.name,
+            color: category.color,
+          })
+        );
 
-        setCategories(transformedCategories)
-        setExpenses(transformedExpenses)
+        setCategories(transformedCategories);
+        setExpenses(transformedExpenses);
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Error fetching data:", error);
         toast({
           title: "Error",
           description: "Failed to load your data. Please try again.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [supabase, toast])
+    fetchData();
+  }, [supabase, toast]);
 
   const filteredExpenses = useMemo(() => {
-    if (timeRange === "all") return expenses
+    if (timeRange === "all") return expenses;
 
-    const now = new Date()
-    const startDate = new Date()
+    const now = new Date();
+    const startDate = new Date();
 
     switch (timeRange) {
       case "7days":
-        startDate.setDate(now.getDate() - 7)
-        break
+        startDate.setDate(now.getDate() - 7);
+        break;
       case "30days":
-        startDate.setDate(now.getDate() - 30)
-        break
+        startDate.setDate(now.getDate() - 30);
+        break;
       case "90days":
-        startDate.setDate(now.getDate() - 90)
-        break
+        startDate.setDate(now.getDate() - 90);
+        break;
       case "year":
-        startDate.setFullYear(now.getFullYear() - 1)
-        break
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
       default:
-        return expenses
+        return expenses;
     }
 
-    return expenses.filter((expense) => expense.date >= startDate)
-  }, [expenses, timeRange])
+    return expenses.filter((expense) => expense.date >= startDate);
+  }, [expenses, timeRange]);
 
   const expensesByCategory = useMemo(() => {
-    const categoryMap = new Map<string, number>()
+    const categoryMap = new Map<
+      string,
+      { value: number; name: string; color: string }
+    >();
 
     filteredExpenses.forEach((expense) => {
-      const currentAmount = categoryMap.get(expense.category) || 0
-      categoryMap.set(expense.category, currentAmount + expense.amount)
-    })
+      if (!expense.categoryName) return; // Skip if no category name
+      const currentData = categoryMap.get(expense.categoryName) || {
+        value: 0,
+        name: expense.categoryName,
+        color: expense.categoryColor || "#94a3b8",
+      };
+      categoryMap.set(expense.categoryName, {
+        ...currentData,
+        value: currentData.value + expense.amount,
+      });
+    });
 
-    return Array.from(categoryMap.entries()).map(([id, value]) => {
-      const category = categories.find((c) => c.id === id)
-      return {
-        id,
-        name: category?.name || id,
-        value,
-        color: category?.color || "#94a3b8",
-      }
-    })
-  }, [filteredExpenses, categories])
+    return Array.from(categoryMap.values());
+  }, [filteredExpenses]);
 
   const expensesByMonth = useMemo(() => {
-    const monthMap = new Map<string, number>()
+    const monthMap = new Map<string, number>();
 
     // Get the last 6 months
-    const today = new Date()
-    const months = []
+    const today = new Date();
+    const months = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`
-      months.push({ key: monthKey, name: d.toLocaleString("default", { month: "short" }) })
-      monthMap.set(monthKey, 0)
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      months.push({
+        key: monthKey,
+        name: d.toLocaleString("default", { month: "short" }),
+      });
+      monthMap.set(monthKey, 0);
     }
 
     filteredExpenses.forEach((expense) => {
-      const monthKey = `${expense.date.getFullYear()}-${expense.date.getMonth() + 1}`
+      const monthKey = `${expense.date.getFullYear()}-${
+        expense.date.getMonth() + 1
+      }`;
       if (monthMap.has(monthKey)) {
-        const currentAmount = monthMap.get(monthKey) || 0
-        monthMap.set(monthKey, currentAmount + expense.amount)
+        const currentAmount = monthMap.get(monthKey) || 0;
+        monthMap.set(monthKey, currentAmount + expense.amount);
       }
-    })
+    });
 
     return months.map((month) => ({
       name: month.name,
       amount: monthMap.get(month.key) || 0,
-    }))
-  }, [filteredExpenses])
+    }));
+  }, [filteredExpenses]);
 
   const totalExpenses = useMemo(() => {
-    return filteredExpenses.reduce((total, expense) => total + expense.amount, 0)
-  }, [filteredExpenses])
+    return filteredExpenses.reduce(
+      (total, expense) => total + expense.amount,
+      0
+    );
+  }, [filteredExpenses]);
 
   const averageExpense = useMemo(() => {
-    return filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0
-  }, [filteredExpenses, totalExpenses])
+    return filteredExpenses.length > 0
+      ? totalExpenses / filteredExpenses.length
+      : 0;
+  }, [filteredExpenses, totalExpenses]);
 
   const topCategory = useMemo(() => {
-    if (expensesByCategory.length === 0) return null
-    return expensesByCategory.sort((a, b) => b.value - a.value)[0]
-  }, [expensesByCategory])
+    if (expensesByCategory.length === 0) return null;
+    return expensesByCategory.sort((a, b) => b.value - a.value)[0];
+  }, [expensesByCategory]);
 
-  const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#ef4444", "#06b6d4", "#6b7280"]
+  const COLORS = [
+    "#10b981",
+    "#3b82f6",
+    "#8b5cf6",
+    "#f59e0b",
+    "#ec4899",
+    "#ef4444",
+    "#06b6d4",
+    "#6b7280",
+  ];
 
   if (isLoading) {
-    return <AnalyticsPageSkeleton />
+    return <AnalyticsPageSkeleton />;
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Analytics</h1>
         <p className="text-slate-600 dark:text-slate-400">
@@ -193,7 +249,9 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-medium text-slate-800 dark:text-slate-100">Overview</h2>
+        <h2 className="text-xl font-medium text-slate-800 dark:text-slate-100">
+          Overview
+        </h2>
         <div className="flex items-center gap-2">
           <Label htmlFor="time-range" className="text-sm">
             Time Range:
@@ -222,7 +280,9 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalExpenses)}
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {filteredExpenses.length} transactions
             </div>
@@ -237,8 +297,12 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(averageExpense)}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Per transaction</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(averageExpense)}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Per transaction
+            </div>
           </CardContent>
         </Card>
 
@@ -258,7 +322,9 @@ export default function AnalyticsPage() {
                 </div>
               </>
             ) : (
-              <div className="text-slate-500 dark:text-slate-400">No expenses yet</div>
+              <div className="text-slate-500 dark:text-slate-400">
+                No expenses yet
+              </div>
             )}
           </CardContent>
         </Card>
@@ -280,7 +346,10 @@ export default function AnalyticsPage() {
           <Card className="border-none shadow-md">
             <CardHeader>
               <CardTitle>Spending by Category</CardTitle>
-              <CardDescription>See how your expenses are distributed across different categories</CardDescription>
+              <CardDescription>
+                See how your expenses are distributed across different
+                categories
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -296,13 +365,18 @@ export default function AnalyticsPage() {
                           outerRadius={100}
                           fill="#8884d8"
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          nameKey="name"
+                          label={({ name, percent }) =>
+                            `${name} ${(percent * 100).toFixed(0)}%`
+                          }
                         >
                           {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                            <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                        <Tooltip
+                          formatter={(value) => formatCurrency(value as number)}
+                        />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -320,10 +394,12 @@ export default function AnalyticsPage() {
                         <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                         <XAxis dataKey="name" />
                         <YAxis tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                        <Tooltip
+                          formatter={(value) => formatCurrency(value as number)}
+                        />
                         <Bar dataKey="value" name="Amount">
                           {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                            <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -343,48 +419,54 @@ export default function AnalyticsPage() {
           <Card className="border-none shadow-md">
             <CardHeader>
               <CardTitle>Spending Over Time</CardTitle>
-              <CardDescription>Track how your expenses have changed over the past months</CardDescription>
+              <CardDescription>
+                Track how your expenses have changed over the past months
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 {expensesByMonth.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                      <LineChart data={expensesByMonth}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                        <XAxis dataKey="name" />
-                        <YAxis tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                        <Line
-                          type="monotone"
-                          dataKey="amount"
-                          stroke="#10b981"
-                          strokeWidth={2}
-                          name="Monthly Expenses"
-                        />
-                      </LineChart>
-
-                      <AreaChart data={expensesByMonth}>
-                        <defs>
-                          <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                        <XAxis dataKey="name" />
-                        <YAxis tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                        <Area
-                          type="monotone"
-                          dataKey="amount"
-                          stroke="#10b981"
-                          fillOpacity={1}
-                          fill="url(#colorAmount)"
-                          name="Monthly Expenses"
-                        />
-                      </AreaChart>
-                    </div>
+                    <AreaChart data={expensesByMonth}>
+                      <defs>
+                        <linearGradient
+                          id="colorAmount"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#10b981"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#10b981"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="name" />
+                      <YAxis tickFormatter={(value) => `₹${value}`} />
+                      <Tooltip
+                        formatter={(value) => formatCurrency(value as number)}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="amount"
+                        stroke="#10b981"
+                        fillOpacity={1}
+                        fill="url(#colorAmount)"
+                        name="Monthly Expenses"
+                        isAnimationActive={true}
+                        animationBegin={0}
+                        animationDuration={1200}
+                        animationEasing="ease-out"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
@@ -397,7 +479,7 @@ export default function AnalyticsPage() {
         </TabsContent>
       </Tabs>
     </motion.div>
-  )
+  );
 }
 
 function AnalyticsPageSkeleton() {
@@ -424,5 +506,5 @@ function AnalyticsPageSkeleton() {
         <Skeleton className="h-[400px] rounded-xl" />
       </div>
     </div>
-  )
+  );
 }
