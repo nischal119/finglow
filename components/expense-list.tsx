@@ -66,7 +66,7 @@ export function ExpenseList({
             animate="visible"
             exit="exit"
             layout
-            className="flex items-center justify-between p-4 rounded-lg border bg-card text-card-foreground shadow-sm"
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card text-card-foreground shadow-sm gap-4 sm:gap-0"
           >
             <div className="flex items-center space-x-4">
               <div
@@ -74,14 +74,16 @@ export function ExpenseList({
                 style={{ backgroundColor: expense.categoryColor }}
               />
               <div>
-                <p className="font-medium">{expense.description}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-medium text-sm sm:text-base">
+                  {expense.description}
+                </p>
+                <p className="text-xs text-muted-foreground">
                   {expense.categoryName} • {format(expense.date, "MMM d, yyyy")}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <p className="text-lg font-semibold">
+            <div className="flex items-center justify-between sm:justify-end space-x-4">
+              <p className="text-base sm:text-lg font-semibold">
                 {formatCurrency(expense.amount)}
               </p>
               <motion.div className="flex items-center space-x-2">
@@ -93,6 +95,7 @@ export function ExpenseList({
                     variant="ghost"
                     size="icon"
                     onClick={() => onEdit(expense)}
+                    className="h-8 w-8 sm:h-10 sm:w-10"
                   >
                     <Edit2Icon className="h-4 w-4" />
                   </Button>
@@ -105,6 +108,7 @@ export function ExpenseList({
                     variant="ghost"
                     size="icon"
                     onClick={() => onDelete(expense)}
+                    className="h-8 w-8 sm:h-10 sm:w-10"
                   >
                     <Trash2Icon className="h-4 w-4" />
                   </Button>

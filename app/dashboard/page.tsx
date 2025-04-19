@@ -174,9 +174,9 @@ export default function DashboardPage() {
     };
   }, [user]);
 
-  const handleEditExpense = async (expense: Expense) => {
-    // This will be handled by the ExpenseForm component
-    // which will show the edit dialog
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setIsFormOpen(true);
   };
 
   const handleDeleteExpense = async (expense: Expense) => {
@@ -229,31 +229,43 @@ export default function DashboardPage() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-8 p-8"
+      className="space-y-8 p-4 sm:p-6 md:p-8"
     >
       <motion.div variants={itemVariants}>
         <Dashboard expenses={filteredExpenses} categories={categories} />
       </motion.div>
 
-      <motion.div variants={itemVariants} className="mt-8">
-        <div className="flex justify-between items-center mb-6">
+      <motion.div variants={itemVariants} className="mt-6 sm:mt-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <motion.h2
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-bold text-gray-900 dark:text-gray-100"
+            className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100"
           >
             Expenses
           </motion.h2>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full sm:w-auto"
+          >
             <Button
               onClick={() => {
                 setEditingExpense(null);
                 setIsFormOpen(true);
               }}
-              className="flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-600 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group"
             >
-              <PlusIcon className="h-4 w-4" />
-              Add Expense
+              <span className="relative z-10 flex items-center gap-2">
+                <PlusIcon className="h-4 w-4" />
+                Add Expense
+              </span>
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "0%" }}
+                transition={{ duration: 0.3 }}
+              />
             </Button>
           </motion.div>
         </div>

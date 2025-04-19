@@ -20,6 +20,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Expense } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 
 interface ExpenseFormProps {
   categories: Category[];
@@ -88,7 +89,7 @@ export function ExpenseForm({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[95%] sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
             {editingExpense ? "Edit Expense" : "Add New Expense"}
@@ -103,6 +104,7 @@ export function ExpenseForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter expense description"
               required
+              className="w-full"
             />
           </div>
           <div className="space-y-2">
@@ -116,6 +118,7 @@ export function ExpenseForm({
               step="0.01"
               min="0"
               required
+              className="w-full"
             />
           </div>
           <div className="space-y-2">
@@ -124,7 +127,7 @@ export function ExpenseForm({
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-full">
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     <div className="flex items-center gap-2">
@@ -139,12 +142,29 @@ export function ExpenseForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : editingExpense ? "Update" : "Add"}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-600 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 relative overflow-hidden group"
+            >
+              <span className="relative z-10">
+                {isSubmitting ? "Saving..." : editingExpense ? "Update" : "Add"}
+              </span>
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "0%" }}
+                transition={{ duration: 0.3 }}
+              />
             </Button>
           </div>
         </form>

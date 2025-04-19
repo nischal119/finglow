@@ -172,10 +172,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Dashboard
-            expenses={filteredExpenses}
-            categories={categories.map((c) => c.id)}
-          />
+          <Dashboard expenses={filteredExpenses} categories={categories} />
 
           <div className="mt-8">
             <div className="flex justify-between items-center mb-6">
@@ -192,10 +189,18 @@ export default function Home() {
                     setEditingExpense(null);
                     setIsFormOpen(true);
                   }}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-600 hover:via-emerald-500 hover:to-emerald-600 text-white rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 flex items-center gap-2 relative overflow-hidden group"
                 >
-                  <PlusIcon className="h-4 w-4" />
-                  Add Expense
+                  <span className="relative z-10 flex items-center gap-2">
+                    <PlusIcon className="h-4 w-4" />
+                    Add Expense
+                  </span>
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "0%" }}
+                    transition={{ duration: 0.3 }}
+                  />
                 </Button>
               </motion.div>
             </div>
