@@ -46,8 +46,9 @@ import {
   TrendingUpIcon,
 } from "lucide-react";
 import type { Expense, Category } from "@/lib/types";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
-export default function AnalyticsPage() {
+function AnalyticsPageContent() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -248,236 +249,124 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-medium text-slate-800 dark:text-slate-100">
-          Overview
-        </h2>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="time-range" className="text-sm">
-            Time Range:
-          </Label>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger id="time-range" className="w-[180px]">
-              <SelectValue placeholder="Select time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7days">Last 7 days</SelectItem>
-              <SelectItem value="30days">Last 30 days</SelectItem>
-              <SelectItem value="90days">Last 90 days</SelectItem>
-              <SelectItem value="year">Last year</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <div className="grid gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Expenses</CardTitle>
+              <CardDescription>All time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(totalExpenses)}
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="pb-2 bg-gradient-to-r from-emerald-500/10 to-teal-500/10">
-            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center">
-              <TrendingUpIcon className="h-4 w-4 mr-2 text-emerald-500" />
-              Total Expenses
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totalExpenses)}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {filteredExpenses.length} transactions
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Average Expense</CardTitle>
+              <CardDescription>Per transaction</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(averageExpense)}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="pb-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10">
-            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center">
-              <PieChartIcon className="h-4 w-4 mr-2 text-blue-500" />
-              Average Expense
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(averageExpense)}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Per transaction
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10">
-            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center">
-              <BarChart3Icon className="h-4 w-4 mr-2 text-purple-500" />
-              Top Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topCategory ? (
-              <>
-                <div className="text-2xl font-bold">{topCategory.name}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Category</CardTitle>
+              <CardDescription>Highest spending</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {topCategory ? topCategory.name : "N/A"}
+              </div>
+              {topCategory && (
+                <div className="text-sm text-slate-500">
                   {formatCurrency(topCategory.value)}
                 </div>
-              </>
-            ) : (
-              <div className="text-slate-500 dark:text-slate-400">
-                No expenses yet
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>Total count</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {filteredExpenses.length}
               </div>
-            )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Expenses Over Time</CardTitle>
+            <CardDescription>Last 6 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={expensesByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#10b981"
+                    fill="#10b981"
+                    fillOpacity={0.2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Expenses by Category</CardTitle>
+            <CardDescription>Breakdown of spending</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={expensesByCategory}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
+                  >
+                    {expensesByCategory.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Tabs defaultValue="category" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="category" className="flex items-center gap-1">
-            <PieChartIcon className="h-4 w-4" />
-            <span>By Category</span>
-          </TabsTrigger>
-          <TabsTrigger value="time" className="flex items-center gap-1">
-            <LineChartIcon className="h-4 w-4" />
-            <span>Over Time</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="category" className="space-y-6">
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle>Spending by Category</CardTitle>
-              <CardDescription>
-                See how your expenses are distributed across different
-                categories
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="h-[300px]">
-                  {expensesByCategory.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={expensesByCategory}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, percent }) =>
-                            `${name} ${(percent * 100).toFixed(0)}%`
-                          }
-                        >
-                          {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value) => formatCurrency(value as number)}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                      No expense data to display
-                    </div>
-                  )}
-                </div>
-
-                <div className="h-[300px]">
-                  {expensesByCategory.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={expensesByCategory}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                        <XAxis dataKey="name" />
-                        <YAxis tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip
-                          formatter={(value) => formatCurrency(value as number)}
-                        />
-                        <Bar dataKey="value" name="Amount">
-                          {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                      No expense data to display
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="time" className="space-y-6">
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle>Spending Over Time</CardTitle>
-              <CardDescription>
-                Track how your expenses have changed over the past months
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                {expensesByMonth.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={expensesByMonth}>
-                      <defs>
-                        <linearGradient
-                          id="colorAmount"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor="#10b981"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="#10b981"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                      <XAxis dataKey="name" />
-                      <YAxis tickFormatter={(value) => `₹${value}`} />
-                      <Tooltip
-                        formatter={(value) => formatCurrency(value as number)}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="amount"
-                        stroke="#10b981"
-                        fillOpacity={1}
-                        fill="url(#colorAmount)"
-                        name="Monthly Expenses"
-                        isAnimationActive={true}
-                        animationBegin={0}
-                        animationDuration={1200}
-                        animationEasing="ease-out"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                    No expense data to display
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </motion.div>
   );
 }
@@ -490,21 +379,25 @@ function AnalyticsPageSkeleton() {
         <Skeleton className="h-4 w-full max-w-md" />
       </div>
 
-      <div className="flex justify-between items-center">
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-10 w-[180px]" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
           <Skeleton key={i} className="h-32 rounded-xl" />
         ))}
       </div>
 
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-[400px] rounded-xl" />
+      <div className="space-y-6">
+        {[1, 2].map((i) => (
+          <Skeleton key={i} className="h-[300px] rounded-xl" />
+        ))}
       </div>
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <ErrorBoundary>
+      <AnalyticsPageContent />
+    </ErrorBoundary>
   );
 }

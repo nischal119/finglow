@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -17,10 +17,13 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/forgot-password"];
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
 
   useEffect(() => {
@@ -32,14 +35,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+
         if (mounted) {
-          setUser(session?.user ?? null);
+          const currentUser = session?.user ?? null;
+          setUser(currentUser);
           setLoading(false);
+
+          // Handle routing based on auth state
+          if (!currentUser && !PUBLIC_ROUTES.includes(pathname)) {
+            router.push("/auth/login");
+          } else if (currentUser && PUBLIC_ROUTES.includes(pathname)) {
+            router.push("/dashboard");
+          }
         }
       } catch (error) {
         console.error("Error checking auth session:", error);
         if (mounted) {
           setLoading(false);
+          if (!PUBLIC_ROUTES.includes(pathname)) {
+            router.push("/auth/login");
+          }
         }
       }
     };
@@ -51,8 +66,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (mounted) {
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         setLoading(false);
+
+        // Handle routing based on auth state change
+        if (!currentUser && !PUBLIC_ROUTES.includes(pathname)) {
+          router.push("/auth/login");
+        } else if (currentUser && PUBLIC_ROUTES.includes(pathname)) {
+          router.push("/dashboard");
+        }
       }
     });
 
@@ -60,10 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [pathname]);
 
   const signOut = async () => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
@@ -78,6 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If there's an error, still try to redirect using router
       router.push("/auth/login");
       router.refresh();
+    } finally {
+      setLoading(false);
     }
   };
 

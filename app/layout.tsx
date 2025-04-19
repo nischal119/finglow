@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
+import { LoadingScreen } from "@/components/loading-screen";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -44,6 +45,7 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
+            <LoadingScreen />
             {children}
             <Toaster />
           </ThemeProvider>

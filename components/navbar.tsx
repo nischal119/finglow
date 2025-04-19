@@ -166,10 +166,10 @@ export function Navbar() {
               Dashboard
             </Link>
             <Link
-              href="/expenses"
+              href="/dashboard/expenses"
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname === "/expenses"
+                pathname === "/dashboard/expenses"
                   ? "text-foreground"
                   : "text-foreground/60"
               )}
@@ -177,10 +177,10 @@ export function Navbar() {
               Expenses
             </Link>
             <Link
-              href="/analytics"
+              href="/dashboard/analytics"
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname === "/analytics"
+                pathname === "/dashboard/analytics"
                   ? "text-foreground"
                   : "text-foreground/60"
               )}
@@ -227,10 +227,10 @@ export function Navbar() {
                   Dashboard
                 </Link>
                 <Link
-                  href="/expenses"
+                  href="/dashboard/expenses"
                   className={cn(
                     "flex items-center gap-2 text-lg font-medium transition-colors hover:text-foreground/80",
-                    pathname === "/expenses"
+                    pathname === "/dashboard/expenses"
                       ? "text-foreground"
                       : "text-foreground/60"
                   )}
@@ -239,10 +239,10 @@ export function Navbar() {
                   Expenses
                 </Link>
                 <Link
-                  href="/analytics"
+                  href="/dashboard/analytics"
                   className={cn(
                     "flex items-center gap-2 text-lg font-medium transition-colors hover:text-foreground/80",
-                    pathname === "/analytics"
+                    pathname === "/dashboard/analytics"
                       ? "text-foreground"
                       : "text-foreground/60"
                   )}
