@@ -78,7 +78,8 @@ export function ExpenseList({
                   {expense.description}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {expense.categoryName} • {format(expense.date, "MMM d, yyyy")}
+                  {expense.custom_category || expense.categoryName} •{" "}
+                  {format(expense.date, "MMM d, yyyy")}
                 </p>
               </div>
             </div>

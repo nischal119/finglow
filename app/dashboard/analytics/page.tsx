@@ -47,6 +47,27 @@ import {
 } from "lucide-react";
 import type { Expense, Category } from "@/lib/types";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { OTHER_CATEGORY_ID } from "@/lib/data";
+
+const COLORS = [
+  "#10b981", // emerald-500
+  "#3b82f6", // blue-500
+  "#8b5cf6", // violet-500
+  "#f59e0b", // amber-500
+  "#ec4899", // pink-500
+  "#ef4444", // red-500
+  "#06b6d4", // cyan-500
+];
+
+const CUSTOM_COLORS = [
+  "#6b7280", // gray-500
+  "#9ca3af", // gray-400
+  "#4b5563", // gray-600
+  "#374151", // gray-700
+  "#1f2937", // gray-800
+  "#111827", // gray-900
+  "#d1d5db", // gray-300
+];
 
 function AnalyticsPageContent() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -152,24 +173,67 @@ function AnalyticsPageContent() {
   const expensesByCategory = useMemo(() => {
     const categoryMap = new Map<
       string,
-      { value: number; name: string; color: string }
+      { value: number; name: string; color: string; isCustom?: boolean }
     >();
 
+    // Keep track of custom category count for color assignment
+    let customCategoryCount = 0;
+
     filteredExpenses.forEach((expense) => {
-      if (!expense.categoryName) return; // Skip if no category name
-      const currentData = categoryMap.get(expense.categoryName) || {
-        value: 0,
-        name: expense.categoryName,
-        color: expense.categoryColor || "#94a3b8",
-      };
-      categoryMap.set(expense.categoryName, {
-        ...currentData,
-        value: currentData.value + expense.amount,
-      });
+      if (!expense.category) return; // Skip if no category
+
+      // For custom categories (Other), use the custom name instead
+      if (expense.category === OTHER_CATEGORY_ID) {
+        // Use custom_category as the key and name
+        const categoryName = expense.custom_category || "Other";
+        const mapKey = `custom_${categoryName}`; // Use a unique key for custom categories
+
+        const existingData = categoryMap.get(mapKey);
+        if (!existingData) {
+          // Assign a new color from CUSTOM_COLORS array
+          const colorIndex = customCategoryCount % CUSTOM_COLORS.length;
+          customCategoryCount++;
+
+          categoryMap.set(mapKey, {
+            value: expense.amount,
+            name: categoryName,
+            color: CUSTOM_COLORS[colorIndex],
+            isCustom: true,
+          });
+        } else {
+          categoryMap.set(mapKey, {
+            ...existingData,
+            value: existingData.value + expense.amount,
+          });
+        }
+      } else {
+        // For regular categories
+        const currentData = categoryMap.get(expense.category) || {
+          value: 0,
+          name: expense.categoryName || expense.category,
+          color: expense.categoryColor || "#94a3b8",
+          isCustom: false,
+        };
+        categoryMap.set(expense.category, {
+          ...currentData,
+          value: currentData.value + expense.amount,
+        });
+      }
     });
 
     return Array.from(categoryMap.values());
   }, [filteredExpenses]);
+
+  // Sort categories to group custom categories together and by value
+  const sortedExpensesByCategory = useMemo(() => {
+    return expensesByCategory.sort((a, b) => {
+      // First sort by custom vs default
+      if (a.isCustom && !b.isCustom) return 1;
+      if (!a.isCustom && b.isCustom) return -1;
+      // Then by value
+      return b.value - a.value;
+    });
+  }, [expensesByCategory]);
 
   const expensesByMonth = useMemo(() => {
     const monthMap = new Map<string, number>();
@@ -220,17 +284,6 @@ function AnalyticsPageContent() {
     if (expensesByCategory.length === 0) return null;
     return expensesByCategory.sort((a, b) => b.value - a.value)[0];
   }, [expensesByCategory]);
-
-  const COLORS = [
-    "#10b981",
-    "#3b82f6",
-    "#8b5cf6",
-    "#f59e0b",
-    "#ec4899",
-    "#ef4444",
-    "#06b6d4",
-    "#6b7280",
-  ];
 
   if (isLoading) {
     return <AnalyticsPageSkeleton />;
@@ -341,7 +394,7 @@ function AnalyticsPageContent() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={expensesByCategory}
+                    data={sortedExpensesByCategory}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -352,11 +405,8 @@ function AnalyticsPageContent() {
                       `${name} ${(percent * 100).toFixed(0)}%`
                     }
                   >
-                    {expensesByCategory.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
+                    {sortedExpensesByCategory.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip />

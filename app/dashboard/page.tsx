@@ -8,15 +8,19 @@ import { ExpenseList } from "@/components/expense-list";
 import { FilterBar } from "@/components/filter-bar";
 import { EmptyExpenses } from "@/components/empty-expenses";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Expense, Category } from "@/lib/types";
+import type { Expense, Category, Income } from "@/lib/types";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AddIncomeButton } from "@/components/income-form";
+import { IncomeList } from "@/components/income-list";
+import { EmptyIncomes } from "@/components/empty-incomes";
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -45,7 +49,15 @@ export default function Home() {
 
       if (expensesError) throw expensesError;
 
-      // Transform data to match our types
+      // Fetch incomes
+      const { data: incomesData, error: incomesError } = await supabase
+        .from("incomes")
+        .select("*")
+        .order("date", { ascending: false });
+
+      if (incomesError) throw incomesError;
+
+      // Transform expenses data
       const transformedExpenses: Expense[] = expensesData.map(
         (expense: any) => ({
           id: expense.id,
@@ -58,6 +70,15 @@ export default function Home() {
         })
       );
 
+      // Transform incomes data
+      const transformedIncomes: Income[] = incomesData.map((income: any) => ({
+        id: income.id,
+        description: income.description,
+        amount: Number(income.amount),
+        date: new Date(income.date),
+        source: income.source,
+      }));
+
       const transformedCategories: Category[] = categoriesData.map(
         (category: any) => ({
           id: category.id,
@@ -68,6 +89,7 @@ export default function Home() {
 
       setCategories(transformedCategories);
       setExpenses(transformedExpenses);
+      setIncomes(transformedIncomes);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -95,6 +117,17 @@ export default function Home() {
       )
       .subscribe();
 
+    const incomesSubscription = supabase
+      .channel("incomes-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "incomes" },
+        (payload) => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
     const categoriesSubscription = supabase
       .channel("categories-changes")
       .on(
@@ -108,6 +141,7 @@ export default function Home() {
 
     return () => {
       expensesSubscription.unsubscribe();
+      incomesSubscription.unsubscribe();
       categoriesSubscription.unsubscribe();
     };
   }, [supabase, toast]);
@@ -137,6 +171,31 @@ export default function Home() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete expense",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteIncome = async (income: Income) => {
+    try {
+      const { error } = await supabase
+        .from("incomes")
+        .delete()
+        .eq("id", income.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Income deleted successfully",
+      });
+
+      fetchData();
+    } catch (error: any) {
+      console.error("Error deleting income:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete income",
         variant: "destructive",
       });
     }
@@ -178,9 +237,36 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Dashboard expenses={filteredExpenses} categories={categories} />
+          <Dashboard
+            expenses={filteredExpenses}
+            incomes={incomes}
+            categories={categories}
+          />
 
           <div className="mt-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                Income
+              </h2>
+              <div className="flex gap-3">
+                <AddIncomeButton onIncomeChange={fetchData} />
+              </div>
+            </div>
+
+            {incomes.length > 0 ? (
+              <IncomeList
+                incomes={incomes}
+                onEdit={(income) => {
+                  // Handle edit - will be implemented with the edit form
+                }}
+                onDelete={deleteIncome}
+              />
+            ) : (
+              <EmptyIncomes />
+            )}
+          </div>
+
+          <div className="mt-12">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 Expenses

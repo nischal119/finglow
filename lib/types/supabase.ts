@@ -18,6 +18,7 @@ export interface Database {
           date: string;
           user_id: string;
           created_at: string;
+          custom_category: string | null;
         };
         Insert: {
           id?: string;
@@ -27,6 +28,7 @@ export interface Database {
           date: string;
           user_id: string;
           created_at?: string;
+          custom_category?: string | null;
         };
         Update: {
           id?: string;
@@ -36,6 +38,7 @@ export interface Database {
           date?: string;
           user_id?: string;
           created_at?: string;
+          custom_category?: string | null;
         };
       };
       categories: {

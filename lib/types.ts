@@ -6,6 +6,15 @@ export interface Expense {
   date: Date;
   categoryName: string;
   categoryColor: string;
+  custom_category?: string | null;
+}
+
+export interface Income {
+  id: string;
+  description: string;
+  amount: number;
+  date: Date;
+  source?: string;
 }
 
 export interface Category {

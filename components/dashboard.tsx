@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Expense, Category } from "@/lib/types";
+import type { Expense, Category, Income } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { OTHER_CATEGORY_ID } from "@/lib/data";
 import {
   PieChart,
   Pie,
@@ -27,6 +28,7 @@ import {
   LineChartIcon,
   PieChartIcon,
   TrendingUpIcon,
+  DollarSignIcon,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
@@ -35,10 +37,11 @@ import { Clock, ChartPie, Wallet } from "lucide-react";
 
 interface DashboardProps {
   expenses: Expense[];
+  incomes: Income[];
   categories: Category[];
 }
 
-export function Dashboard({ expenses, categories }: DashboardProps) {
+export function Dashboard({ expenses, incomes, categories }: DashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
@@ -55,11 +58,12 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
     return () => clearTimeout(timer);
   }, [expenses]);
 
-  // Calculate total expenses
   const totalExpenses = expenses.reduce(
-    (acc, expense) => acc + expense.amount,
+    (sum, expense) => sum + expense.amount,
     0
   );
+  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const balance = totalIncome - totalExpenses;
 
   // Find top category
   const categoryExpenses = expenses.reduce((acc, expense) => {
@@ -81,27 +85,91 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
     return uniqueCategories.size;
   }, [expenses]);
 
+  const COLORS = [
+    "#10b981", // emerald-500
+    "#3b82f6", // blue-500
+    "#8b5cf6", // violet-500
+    "#f59e0b", // amber-500
+    "#ec4899", // pink-500
+    "#ef4444", // red-500
+    "#06b6d4", // cyan-500
+  ];
+
+  // Colors for custom categories
+  const CUSTOM_COLORS = [
+    "#6b7280", // gray-500
+    "#9ca3af", // gray-400
+    "#4b5563", // gray-600
+    "#374151", // gray-700
+    "#1f2937", // gray-800
+    "#111827", // gray-900
+    "#d1d5db", // gray-300
+  ];
+
   const expensesByCategory = useMemo(() => {
     const categoryMap = new Map<
       string,
-      { value: number; name: string; color: string }
+      { value: number; name: string; color: string; isCustom?: boolean }
     >();
+
+    // Keep track of custom category count for color assignment
+    let customCategoryCount = 0;
 
     expenses.forEach((expense) => {
       if (!expense.category) return; // Skip if no category
-      const currentData = categoryMap.get(expense.category) || {
-        value: 0,
-        name: expense.categoryName || expense.category,
-        color: expense.categoryColor || "#94a3b8",
-      };
-      categoryMap.set(expense.category, {
-        ...currentData,
-        value: currentData.value + expense.amount,
-      });
+
+      // For custom categories (Other), use the custom name instead
+      if (expense.category === OTHER_CATEGORY_ID) {
+        // Use custom_category as the key and name
+        const categoryName = expense.custom_category || "Other";
+        const mapKey = `custom_${categoryName}`; // Use a unique key for custom categories
+
+        const existingData = categoryMap.get(mapKey);
+        if (!existingData) {
+          // Assign a new color from CUSTOM_COLORS array
+          const colorIndex = customCategoryCount % CUSTOM_COLORS.length;
+          customCategoryCount++;
+
+          categoryMap.set(mapKey, {
+            value: expense.amount,
+            name: categoryName,
+            color: CUSTOM_COLORS[colorIndex],
+            isCustom: true,
+          });
+        } else {
+          categoryMap.set(mapKey, {
+            ...existingData,
+            value: existingData.value + expense.amount,
+          });
+        }
+      } else {
+        // For regular categories
+        const currentData = categoryMap.get(expense.category) || {
+          value: 0,
+          name: expense.categoryName || expense.category,
+          color: expense.categoryColor || "#94a3b8",
+          isCustom: false,
+        };
+        categoryMap.set(expense.category, {
+          ...currentData,
+          value: currentData.value + expense.amount,
+        });
+      }
     });
 
     return Array.from(categoryMap.values());
   }, [expenses]);
+
+  // Sort categories to group custom categories together and by value
+  const sortedExpensesByCategory = useMemo(() => {
+    return expensesByCategory.sort((a, b) => {
+      // First sort by custom vs default
+      if (a.isCustom && !b.isCustom) return 1;
+      if (!a.isCustom && b.isCustom) return -1;
+      // Then by value
+      return b.value - a.value;
+    });
+  }, [expensesByCategory]);
 
   const expensesByMonth = useMemo(() => {
     const monthMap = new Map<string, number>();
@@ -164,16 +232,58 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
     return ((avgAmount - prevAvgAmount) / prevAvgAmount) * 100;
   }, [expenses]);
 
-  const COLORS = [
-    "#10b981",
-    "#3b82f6",
-    "#8b5cf6",
-    "#f59e0b",
-    "#ec4899",
-    "#ef4444",
-    "#06b6d4",
-    "#6b7280",
-  ];
+  const incomeVsExpenseData = useMemo(() => {
+    const monthMap = new Map<
+      string,
+      { income: number; expense: number; profit: number }
+    >();
+
+    // Get the last 6 months
+    const today = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      months.push({
+        key: monthKey,
+        name: d.toLocaleString("default", { month: "short" }),
+      });
+      monthMap.set(monthKey, { income: 0, expense: 0, profit: 0 });
+    }
+
+    // Calculate expenses by month
+    expenses.forEach((expense) => {
+      const monthKey = `${expense.date.getFullYear()}-${
+        expense.date.getMonth() + 1
+      }`;
+      if (monthMap.has(monthKey)) {
+        const current = monthMap.get(monthKey)!;
+        current.expense += expense.amount;
+        current.profit = current.income - current.expense;
+        monthMap.set(monthKey, current);
+      }
+    });
+
+    // Calculate income by month
+    incomes.forEach((income) => {
+      const monthKey = `${income.date.getFullYear()}-${
+        income.date.getMonth() + 1
+      }`;
+      if (monthMap.has(monthKey)) {
+        const current = monthMap.get(monthKey)!;
+        current.income += income.amount;
+        current.profit = current.income - current.expense;
+        monthMap.set(monthKey, current);
+      }
+    });
+
+    return months.map((month) => ({
+      name: month.name,
+      income: monthMap.get(month.key)?.income || 0,
+      expense: monthMap.get(month.key)?.expense || 0,
+      profit: monthMap.get(month.key)?.profit || 0,
+    }));
+  }, [expenses, incomes]);
 
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -278,7 +388,7 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                       >
                         <PieChart>
                           <Pie
-                            data={expensesByCategory}
+                            data={sortedExpensesByCategory}
                             cx="50%"
                             cy="50%"
                             labelLine={false}
@@ -293,12 +403,10 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
                             animationDuration={1200}
                             animationEasing="ease-out"
                           >
-                            {expensesByCategory.map((entry, index) => (
+                            {sortedExpensesByCategory.map((entry, index) => (
                               <Cell
-                                key={`cell-${index}-${entry.value}`}
-                                fill={
-                                  entry.color || COLORS[index % COLORS.length]
-                                }
+                                key={`cell-${entry.name}-${index}`}
+                                fill={entry.color}
                               />
                             ))}
                           </Pie>
@@ -511,6 +619,89 @@ export function Dashboard({ expenses, categories }: DashboardProps) {
             </Card>
           </motion.div>
         </Tabs>
+      </div>
+
+      <div className="mt-8">
+        <Card className="p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                Total Income
+              </p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {formatCurrency(totalIncome)}
+              </h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+              <ArrowUpIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            From {incomes.length} income records
+          </p>
+        </Card>
+
+        <Card className="p-6 mt-4 bg-gradient-to-br from-red-500/10 to-red-600/10 border-red-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                Total Expenses
+              </p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {formatCurrency(totalExpenses)}
+              </h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+              <ArrowDownIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            From {expenses.length} expense records
+          </p>
+        </Card>
+
+        <Card
+          className={`p-6 mt-4 ${
+            balance >= 0
+              ? "bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border-emerald-500/20"
+              : "bg-gradient-to-br from-orange-500/10 to-orange-600/10 border-orange-500/20"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p
+                className={`text-sm font-medium ${
+                  balance >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-orange-600 dark:text-orange-400"
+                }`}
+              >
+                Balance
+              </p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {formatCurrency(balance)}
+              </h3>
+            </div>
+            <div
+              className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                balance >= 0
+                  ? "bg-emerald-100 dark:bg-emerald-900/20"
+                  : "bg-orange-100 dark:bg-orange-900/20"
+              }`}
+            >
+              <DollarSignIcon
+                className={`h-6 w-6 ${
+                  balance >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-orange-600 dark:text-orange-400"
+                }`}
+              />
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            {balance >= 0 ? "Net savings" : "Net deficit"}
+          </p>
+        </Card>
       </div>
     </motion.div>
   );

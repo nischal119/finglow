@@ -16,6 +16,7 @@ import {
   TrashIcon,
   CreditCardIcon,
   UserCircle,
+  BarChart2Icon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,17 @@ export function Navbar() {
               Expenses
             </Link>
             <Link
+              href="/dashboard/comparison"
+              className={cn(
+                "transition-colors hover:text-foreground/80",
+                pathname === "/dashboard/comparison"
+                  ? "text-foreground"
+                  : "text-foreground/60"
+              )}
+            >
+              Income vs Expenses
+            </Link>
+            <Link
               href="/dashboard/analytics"
               className={cn(
                 "transition-colors hover:text-foreground/80",
@@ -237,6 +249,18 @@ export function Navbar() {
                 >
                   <CreditCardIcon className="h-5 w-5" />
                   Expenses
+                </Link>
+                <Link
+                  href="/dashboard/comparison"
+                  className={cn(
+                    "flex items-center gap-2 text-lg font-medium transition-colors hover:text-foreground/80",
+                    pathname === "/dashboard/comparison"
+                      ? "text-foreground"
+                      : "text-foreground/60"
+                  )}
+                >
+                  <BarChart2Icon className="h-5 w-5" />
+                  Income vs Expenses
                 </Link>
                 <Link
                   href="/dashboard/analytics"

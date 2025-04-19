@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/forgot-password"];
+const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/reset-password"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -64,14 +64,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for changes on auth state (sign in, sign out, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (mounted) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setLoading(false);
 
         // Handle routing based on auth state change
-        if (!currentUser && !PUBLIC_ROUTES.includes(pathname)) {
+        if (event === "SIGNED_OUT") {
+          router.push("/auth/login");
+          router.refresh();
+        } else if (!currentUser && !PUBLIC_ROUTES.includes(pathname)) {
           router.push("/auth/login");
         } else if (currentUser && PUBLIC_ROUTES.includes(pathname)) {
           router.push("/dashboard");

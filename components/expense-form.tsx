@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Category, Expense } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { OTHER_CATEGORY_ID } from "@/lib/data";
 
 interface ExpenseFormProps {
   categories: Category[];
@@ -40,8 +41,16 @@ export function ExpenseForm({
   const [description, setDescription] = useState(
     editingExpense?.description || ""
   );
-  const [amount, setAmount] = useState(editingExpense?.amount.toString() || "");
-  const [category, setCategory] = useState(editingExpense?.category || "");
+  const [amount, setAmount] = useState(
+    editingExpense?.amount?.toString() || ""
+  );
+  const [category, setCategory] = useState(
+    editingExpense?.custom_category ? "other" : editingExpense?.category || ""
+  );
+  const [customCategory, setCustomCategory] = useState(
+    editingExpense?.custom_category || ""
+  );
+  const [date, setDate] = useState(editingExpense?.date || new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const supabase = createClient();
   const { toast } = useToast();
@@ -51,41 +60,51 @@ export function ExpenseForm({
     setIsSubmitting(true);
 
     try {
+      // Get the current user's ID
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
       const expenseData = {
         description,
         amount: parseFloat(amount),
         category_id: category,
-        date: new Date().toISOString(),
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        date: date.toISOString(),
+        custom_category: category === OTHER_CATEGORY_ID ? customCategory : null,
+        user_id: user.id,
       };
 
       if (editingExpense) {
-        await supabase
+        const { error } = await supabase
           .from("expenses")
           .update(expenseData)
           .eq("id", editingExpense.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Expense updated successfully",
+        });
       } else {
-        await supabase.from("expenses").insert([expenseData]);
+        const { error } = await supabase.from("expenses").insert([expenseData]);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Expense added successfully",
+        });
       }
 
-      toast({
-        title: "Success",
-        description: editingExpense
-          ? "Expense updated successfully"
-          : "Expense added successfully",
-      });
-
-      if (onExpenseChange) {
-        onExpenseChange();
-      }
-
+      onExpenseChange?.();
       onSubmit();
-      onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving expense:", error);
       toast({
         title: "Error",
-        description: "Failed to save expense. Please try again.",
+        description: error.message || "Failed to save expense",
         variant: "destructive",
       });
     } finally {
@@ -134,19 +153,50 @@ export function ExpenseForm({
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent className="w-full">
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span>{cat.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {categories
+                  .filter(
+                    (cat) =>
+                      cat.id !== OTHER_CATEGORY_ID && cat.name !== "Other"
+                  )
+                  .map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <span>{cat.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                <SelectItem value={OTHER_CATEGORY_ID}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: "#6b7280" }}
+                    />
+                    <span>Other</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
+            {category === OTHER_CATEGORY_ID && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2"
+              >
+                <Label htmlFor="customCategory">Custom Category Name</Label>
+                <Input
+                  id="customCategory"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Enter your custom category name"
+                  required={category === OTHER_CATEGORY_ID}
+                  className="w-full"
+                />
+              </motion.div>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
             <Button

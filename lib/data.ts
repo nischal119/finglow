@@ -1,4 +1,4 @@
-import type { Category } from "./types"
+import type { Category } from "./types";
 
 export const defaultCategories: Category[] = [
   {
@@ -36,9 +36,7 @@ export const defaultCategories: Category[] = [
     name: "Travel",
     color: "#06b6d4", // cyan-500
   },
-  {
-    id: "other",
-    name: "Other",
-    color: "#6b7280", // gray-500
-  },
-]
+];
+
+// UUID for the "other" category that will be used across the application
+export const OTHER_CATEGORY_ID = "00000000-0000-0000-0000-000000000000";
